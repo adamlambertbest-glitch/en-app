@@ -236,6 +236,20 @@ tr.done td.k,tr.done td.r,tr.done td.ko{color:var(--muted)}
 .node .bub{position:absolute;bottom:calc(100% + 10px);left:50%;transform:translateX(-50%);background:var(--surface);color:var(--ai);border:2px solid var(--line);border-radius:10px;padding:4px 10px;font-size:13px;white-space:nowrap;animation:bob 1.6s ease-in-out infinite}
 .node .cnt{position:absolute;right:-4px;bottom:-6px;background:var(--surface);color:var(--ochre);border:2px solid var(--ochre);border-radius:99px;font-size:11px;padding:0 5px;line-height:16px}
 @keyframes bob{50%{transform:translate(-50%,-4px)}}
+.fcard{all:unset;box-sizing:border-box;cursor:pointer;width:100%;min-height:300px;border:2px solid var(--line);border-bottom-width:6px;border-radius:20px;background:var(--surface);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;padding:22px 18px;text-align:center;transition:opacity .12s}
+.fcard.blink{opacity:0}
+.fcard:focus-visible{outline:2px solid var(--ai);outline-offset:3px}
+.fcard .fw{font-family:var(--f-jp-display);font-size:clamp(40px,12vw,60px);font-weight:700;line-height:1.15;overflow-wrap:anywhere}
+.fcard .fp{font-family:var(--f-jp);font-size:clamp(26px,7vw,36px);color:var(--ai)}
+.fcard .fm{font-size:clamp(24px,7vw,32px);font-weight:700}
+.fcard .fs{font-size:14px;color:var(--muted)}
+.fcard .fe{font-family:var(--f-jp);font-size:16px;line-height:1.6}
+.fdots{display:flex;gap:6px;justify-content:center}
+.fdots span{font-size:12px;padding:3px 10px;border-radius:99px;color:var(--muted);border:1px solid var(--line)}
+.fdots span.on{background:var(--ai);color:var(--surface);border-color:var(--ai)}
+.uband .fl{all:unset;cursor:pointer;flex:0 0 auto;border:1.5px solid rgba(255,255,255,.7);border-radius:99px;padding:6px 12px;font-size:13px;font-weight:700;color:inherit}
+.uband .fl:focus-visible{outline:2px solid var(--surface);outline-offset:2px}
 /* ---------- 레슨 화면 ---------- */
 .lesson{position:fixed;inset:0;z-index:50;background:var(--bg);display:flex;flex-direction:column;
   padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
@@ -1139,7 +1153,8 @@ function renderLearn(){
   if(!ux.length){box.innerHTML=`<div class="panel empty">아직 단어가 없어요. 단어 탭에서 사진·PDF로 챕터를 추가해 주세요.</div>`;return}
   const OFF=[0,1,2,1,0,-1,-2,-1];
   ux.forEach(u=>{const doneN=u.lessons.filter(l=>L.done[l.id]).length,d=document.createElement("div");d.className="unit";
-    d.innerHTML=`<div class="uband${u.kind==="g"?" g":""}"><div><b>${esc(u.name)}</b><span>${u.kind==="g"?"숙어":"단어"} ${u.items.length}개 · 레슨 ${doneN}/${u.lessons.length}</span></div><span>${doneN===u.lessons.length?"완료 ✓":""}</span></div><div class="path"></div>`;
+    d.innerHTML=`<div class="uband${u.kind==="g"?" g":""}"><div><b>${esc(u.name)}</b><span>${u.kind==="g"?"숙어":"단어"} ${u.items.length}개 · 레슨 ${doneN}/${u.lessons.length}</span></div>${u.kind==="w"?`<button class="fl" aria-label="${esc(u.name)} 플래시 카드로 보기">⚡ 플래시</button>`:`<span>${doneN===u.lessons.length?"완료 ✓":""}</span>`}</div><div class="path"></div>`;
+    const fl=d.querySelector(".fl");if(fl)fl.onclick=()=>{chId=u.id;store.set("en_ch",chId);go("words");setTimeout(()=>{if(!playing)playFlash()},250)};
     const path=d.querySelector(".path");let firstOpen=true;
     u.lessons.forEach((l,i)=>{const done=!!L.done[l.id],open=i===0||!!L.done[u.lessons[i-1].id],b=document.createElement("button");
       b.className="node "+(done?"done":open?"open":"locked");b.style.transform=`translateX(${OFF[i%OFF.length]*38}px)`;
@@ -1166,14 +1181,16 @@ function wordEx(w,type){
 function buildLesson(u,l){
   const ex=[];
   if(u.kind==="g"){
-    l.items.forEach(g=>{if(!L.seen[g.key])ex.push({t:"intro",g,key:g.key});const q=makeQ(g,"mix");ex.push({t:"choice",key:g.key,g,q:{kind:q.kind,prompt:q.prompt,ko:false,sent:/sent/.test(q.pcls),answer:q.answer,choices:q.choices,en:!/ko/.test(q.ccls)}})});
+    l.items.forEach((g,i)=>ex.push({t:"flash",g,key:g.key,isNew:!L.seen[g.key],n:i+1,of:l.items.length}));
+    l.items.forEach(g=>{const q=makeQ(g,"mix");ex.push({t:"choice",key:g.key,g,q:{kind:q.kind,prompt:q.prompt,ko:false,sent:/sent/.test(q.pcls),answer:q.answer,choices:q.choices,en:!/ko/.test(q.ccls)}})});
     if(l.items.length>=3)ex.push({t:"match",pairs:shuffle(l.items).slice(0,5).map(g=>({a:g.p,b:g.m,key:g.key}))});
     shuffle(l.items).forEach(g=>{const sent=(g.ex||"").replace(/[{}]/g,"").trim();if(sent.split(/\s+/).length>=3&&g.ko){
       const toks=sent.split(/\s+/),others=GRAM.filter(x=>x!==g).flatMap(x=>(x.ex||"").replace(/[{}]/g,"").split(/\s+/)).filter(t=>t&&!toks.includes(t));
       ex.push({t:"build",key:g.key,g,answer:toks,bank:shuffle([...toks,...shuffle(others).slice(0,3)])})}});
   }else{
     const ws=l.items;
-    ws.forEach(w=>{if(!L.seen[w.key])ex.push({t:"intro",w,key:w.key});ex.push(wordEx(w,pick(["mean","rev"])))});
+    ws.forEach((w,i)=>ex.push({t:"flash",w,key:w.key,isNew:!L.seen[w.key],n:i+1,of:ws.length}));
+    shuffle(ws).forEach(w=>ex.push(wordEx(w,pick(["mean","rev"]))));
     if(ws.length>=3)ex.push({t:"match",pairs:shuffle(ws).slice(0,5).map(w=>({a:w.k,b:w.m,key:w.key}))});
     shuffle(ws).forEach(w=>{const o=CAN_SPEAK?["spell","listen","type"]:["spell","type","rev"];if(/\{.+?\}/.test(w.ex||""))o.push("part5","part5");if(synOf(w).length)o.push("syn");ex.push(wordEx(w,pick(o)))});
   }
@@ -1189,7 +1206,7 @@ function startLesson(u,l){
   let el=$("lesson");if(!el){el=document.createElement("div");el.id="lesson";el.className="lesson";el.setAttribute("role","dialog");el.setAttribute("aria-modal","true");document.body.appendChild(el)}
   el.hidden=false;document.body.style.overflow="hidden";$("fab").hidden=true;stopFlash();drawEx();
 }
-function closeLesson(){const el=$("lesson");if(el)el.hidden=true;$("fab").hidden=false;document.body.style.overflow="";LX=null;try{speechSynthesis.cancel()}catch(e){}renderLearn();renderBadge()}
+function closeLesson(){if(LX)clearTimeout(LX.tm);const el=$("lesson");if(el)el.hidden=true;$("fab").hidden=false;document.body.style.overflow="";LX=null;try{speechSynthesis.cancel()}catch(e){}renderLearn();renderBadge()}
 function shell(body,foot){
   const el=$("lesson");
   el.innerHTML=`<div class="in ltop"><button class="x" id="lxQuit" aria-label="레슨 그만두기">✕</button><div class="lbar"><i style="width:${LX.done/LX.total*100}%"></i></div><span class="hearts" aria-label="남은 하트">♥ ${LX.hearts}</span></div>
@@ -1198,9 +1215,29 @@ function shell(body,foot){
     $("lxQY").onclick=closeLesson;$("lxQN").onclick=()=>$("lxQB").remove()};
 }
 function drawEx(){
+  clearTimeout(LX.tm);
   if(!LX.ex.length)return finishLesson();
   const e=LX.ex[0];LX.state="ask";LX.sel=null;
   const checkBtn=`<button class="big-btn" id="lxGo" aria-disabled="true">확인</button>`;
+  if(e.t==="flash"){const w=e.w,g=e.g;
+    const st=g?[["w",g.p,"표현"],["m",g.m,"뜻"]]:[["w",w.k,"Word"],...(w.r?[["p",w.r,"발음"]]:[]),["m",w.m,"뜻"]];let i=0;
+    const ms=()=>Math.max(500,(+($("speed")?.value)||1.5)*1000);
+    shell(`<p class="ltitle">${e.isNew?"새 ":""}플래시 카드 <span class="small" style="font-weight:400">${e.n} / ${e.of}</span></p>
+      <div class="fdots">${st.map(x=>`<span>${x[2]}</span>`).join("")}</div>
+      <button class="fcard" id="fc" aria-live="polite" aria-label="카드를 누르면 다음 면으로 넘어가요"></button>
+      <div class="row" style="justify-content:center">${CAN_SPEAK?`<button id="fcSay">🔊 발음</button>`:""}<button id="fcRe">↺ 처음부터</button></div>`,
+      `<button class="big-btn" id="lxGo" aria-disabled="true">다음</button>`);
+    const fc=$("fc"),dots=[...document.querySelectorAll(".fdots span")],say1=()=>say(g?g.p:w.k);
+    const show=()=>{clearTimeout(LX.tm);fc.classList.add("blink");
+      setTimeout(()=>{if(!LX||LX.ex[0]!==e)return;const [kind,t]=st[i];
+        fc.innerHTML=kind==="w"?`<span class="fw">${esc(t)}</span>`:kind==="p"?`<span class="fp">${esc(t)}</span><span class="fs">${esc(w.k)}</span>`
+          :`<span class="fm">${esc(t)}</span><span class="fs">${esc(g?g.p:w.k)}${w&&w.r?" · "+esc(w.r):""}</span>${w&&w.note?`<span class="fs">${esc(w.note)}</span>`:""}${(w&&w.ex)||(g&&g.ex)?`<span class="fe">${exHTML(w?w.ex:g.ex)}</span>`:""}${g&&g.ko?`<span class="fs">${esc(g.ko)}</span>`:""}`;
+        fc.classList.remove("blink");dots.forEach((d,j)=>d.classList.toggle("on",j===i));
+        if(kind==="w")say1();
+        if(i===st.length-1){$("lxGo").setAttribute("aria-disabled","false")}else LX.tm=setTimeout(()=>{i++;show()},ms())},110)};
+    fc.onclick=()=>{i=i<st.length-1?i+1:0;show()};$("fcRe").onclick=()=>{i=0;show()};if($("fcSay"))$("fcSay").onclick=say1;
+    show();
+    $("lxGo").onclick=()=>{if($("lxGo").getAttribute("aria-disabled")==="true")return;clearTimeout(LX.tm);L.seen[e.key]=1;saveL();LX.ex.shift();LX.done++;drawEx()};return}
   if(e.t==="intro"){const w=e.w,g=e.g;
     shell(`<p class="ltitle">새 ${g?"숙어":"단어"}</p><div class="intro"><span class="tag">NEW</span><span class="w">${esc(g?g.p:w.k)}</span>${w&&w.r?`<span class="p">${esc(w.r)}</span>`:""}<span class="m">${esc(g?g.m:w.m)}</span>${w&&w.note?`<span class="n">${esc(w.note)}</span>`:""}${w&&w.ex?`<span class="ex">${exHTML(w.ex)}</span>`:""}${g&&g.ex?`<span class="ex">${exHTML(g.ex)}</span><span class="n">${esc(g.ko||"")}</span>`:""}${CAN_SPEAK?`<button class="spk sm" id="lxSay" aria-label="발음 듣기">🔊</button>`:""}</div>`,
       `<button class="big-btn" id="lxGo">알겠어요</button>`);
