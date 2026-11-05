@@ -976,7 +976,8 @@ function makeQ(item,type){
   const pool=allWords().filter(x=>x.key!==w.key);
   const same=CH.find(c=>c.id===w.ch)?.words.filter(x=>x.key!==w.key)||[];
   if(t==="part5"){const ans=w.ex.match(/\{(.+?)\}/)[1],forms=morph(w).filter(x=>x.toLowerCase()!==ans.toLowerCase());
-    return {item,kind:"Part 5 · 빈칸에 알맞은 것",pcls:"sent",prompt:w.ex.replace(/\{.+?\}/,"_______"),answer:ans,choices:fillChoices(ans,forms,pool.filter(x=>posOf(x)===posOf(w)).map(x=>x.k)),ccls:"jp"}}
+    const cap=/^[A-Z]/.test(ans)&&w.ex.trim().startsWith("{"),C=x=>cap?x.charAt(0).toUpperCase()+x.slice(1):x;
+    return {item,kind:"Part 5 · 빈칸에 알맞은 것",pcls:"sent",prompt:w.ex.replace(/\{.+?\}/,"_______"),answer:ans,choices:fillChoices(ans,forms.map(C),pool.filter(x=>posOf(x)===posOf(w)).map(x=>C(x.k))),ccls:"jp"}}
   if(t==="syn"){const sy=synOf(w),ans=sy[0],bad=new Set([w.k.toLowerCase(),...sy.map(x=>x.toLowerCase())]);
     return {item,kind:"Part 7 · 같은 뜻으로 바꿔 쓸 수 있는 것",pcls:"jp",prompt:w.k,answer:ans,choices:fillChoices(ans,[],pool.flatMap(x=>[x.k,...synOf(x)]).filter(x=>!bad.has(x.toLowerCase()))),ccls:"jp"}}
   if(t==="spell")return {item,kind:"철자가 맞는 것은?",pcls:"ko",prompt:w.m,answer:w.k,choices:fillChoices(w.k,spellMut(w.k),pool.filter(x=>Math.abs(x.k.length-w.k.length)<=2).map(x=>x.k)),ccls:"jp"};
@@ -989,7 +990,7 @@ const posOf=w=>((w.note||"").match(/^\s*(n|v|adj|adv)\./i)||[])[1]?.toLowerCase(
 const listIn=(w,label)=>{const m=(w.note||"").match(new RegExp(label+"\\s*[:：]\\s*([^·]+)"));return m?m[1].split(/[,，]/).map(x=>x.replace(/\(.*?\)/g,"").trim()).filter(Boolean):[]};
 const synOf=w=>listIn(w,"유의어");
 function morph(w){
-  const b=w.k.toLowerCase(),pos=posOf(w),out=new Set(listIn(w,"파생"));
+  const b=w.k.toLowerCase(),pos=posOf(w),out=new Set([...listIn(w,"파생"),...listIn(w,"혼동")]);
   if(/\s/.test(b))return [...out];
   if(pos==="v"){out.add(b);
     if(/[^aeiou]y$/.test(b)){out.add(b.slice(0,-1)+"ies");out.add(b.slice(0,-1)+"ied");out.add(b+"ing")}
@@ -1135,7 +1136,7 @@ const sfx={ok:()=>tone([660,880]),bad:()=>{tone([233,185],.2,"triangle",.12);try
 function say(t,rate){if(!CAN_SPEAK)return;try{speechSynthesis.cancel();const u=new SpeechSynthesisUtterance(t);u.lang="en-US";if(jaVoice)u.voice=jaVoice;u.rate=rate||.9;speechSynthesis.speak(u)}catch(e){}}
 
 function units(){
-  const n=6,out=CH.map(c=>({id:c.id,name:c.name,kind:"w",items:c.words}));
+  const n=5,out=CH.map(c=>({id:c.id,name:c.name,kind:"w",items:c.words}));
   [...new Set(GRAM.map(g=>g.cat||"숙어"))].forEach(cat=>out.push({id:"g:"+cat,name:cat,kind:"g",items:GRAM.filter(g=>(g.cat||"숙어")===cat)}));
   return out.filter(u=>u.items.length).map(u=>{const m=u.kind==="g"?5:n,ls=[];
     for(let i=0;i<u.items.length;i+=m)ls.push({id:u.id+"#"+(i/m),no:i/m+1,items:u.items.slice(i,i+m)});return {...u,lessons:ls}});
