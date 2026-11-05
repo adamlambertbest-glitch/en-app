@@ -459,18 +459,18 @@ tr.done td.k,tr.done td.r,tr.done td.ko{color:var(--muted)}
 
   <!-- QUIZ -->
   <section class="view" id="v-quiz" hidden>
-    <div><h1>Quiz</h1><p class="lead">철자 문제의 오답 보기는 글자를 겹치거나 빼고, 모음·접미사를 바꾼 헷갈리는 함정이에요.</p></div>
+    <div><h1>Quiz</h1><p class="lead">답을 고르면 바로 정답과 해설이 나와요. 틀린 문제는 복습 탭에 모여요.</p></div>
     <div id="quizBox"></div>
   </section>
 
   <!-- GRAMMAR -->
   <section class="view" id="v-grammar" hidden>
-    <div><h1>Phrases</h1><p class="lead">숙어 카드예요. 카드를 누르면 뜻이 보여요. 예문의 색칠된 부분이 표현이에요.</p></div>
+    <div><h1>Grammar</h1><p class="lead">토익 Part 5 핵심 문법과 숙어 카드예요. 카드를 누르면 설명이 보이고, <b>문제</b> 버튼으로 그 문법 문제를 바로 풀 수 있어요.</p></div>
     <div class="row">
       <select id="gCat" aria-label="표현 범위"></select>
       <label class="small"><input type="checkbox" id="gHide" checked> 뜻 가리기</label>
       <label class="small"><input type="checkbox" id="gOnly"> 못 외운 것만</label>
-      <button id="gQuiz" class="primary" style="margin-left:auto">표현 퀴즈</button>
+      <button id="gQuiz" class="primary" style="margin-left:auto">문제 풀기</button>
     </div>
     <div class="view" id="gList" style="gap:10px"></div>
     <details class="panel">
@@ -488,6 +488,12 @@ tr.done td.k,tr.done td.r,tr.done td.ko{color:var(--muted)}
   </section>
 
   <!-- REVIEW / WRONG NOTE -->
+  <section class="view" id="v-prac" hidden>
+    <div><h1>Practice</h1><p class="lead">토익 Part 5·6·7 실전 문제예요. 답을 고르면 정답과 해설이 나와요.</p></div>
+    <div class="row"><button class="primary" id="pr5">Part 5</button><button class="primary" id="pr6">Part 6</button><button class="primary" id="pr7">Part 7</button><button id="prW">틀린 문제만</button></div>
+    <div id="pracList" style="display:flex;flex-direction:column;gap:10px"></div>
+  </section>
+
   <section class="view" id="v-review" hidden>
     <div><h1>Review</h1><p class="lead">퀴즈에서 틀린 문제가 모여요. 세 번 연속 맞히면 오답 노트에서 빠져요.</p></div>
     <div class="row"><button class="primary" id="rQuiz">오답만 퀴즈</button><span class="small" id="rCount"></span></div>
@@ -508,8 +514,8 @@ tr.done td.k,tr.done td.r,tr.done td.ko{color:var(--muted)}
 <nav class="tabs" aria-label="메뉴"><div class="in">
   <a href="#learn" data-v="learn"><span class="g">✦</span>학습</a>
   <a href="#words" data-v="words"><span class="g">Aa</span>단어</a>
-  <a href="#quiz" data-v="quiz"><span class="g">?</span>퀴즈</a>
-  <a href="#grammar" data-v="grammar"><span class="g">“”</span>숙어</a>
+  <a href="#grammar" data-v="grammar"><span class="g">§</span>문법</a>
+  <a href="#prac" data-v="prac"><span class="g">✎</span>실전</a>
   <a href="#review" data-v="review"><span class="g">↺</span>복습<span class="badge" id="navBadge" hidden></span></a>
 </div></nav>
 
@@ -540,7 +546,7 @@ function loadData(){
   const base=window.N1_WORDS?.chapters||[],real=base.filter(c=>!c.sample);
   SAMPLE_WORDS=!imp&&!own.length&&!real.length;SAMPLE_GRAM=!(imp?.grammar?.length)&&!ug.length;
   DATA=imp?{updated:imp.updated,chapters:imp.chapters||[]}:{updated:real.length?window.N1_WORDS.updated:"",chapters:SAMPLE_WORDS?base:real};
-  GRAM=[...(imp?.grammar?.length?imp.grammar:(SAMPLE_GRAM?(window.N1_GRAMMAR||[]):[])),...ug.map(g=>({...g,own:true}))].map(g=>({...g,key:"g:"+g.id}));
+  GRAM=[...(imp?.grammar?.length?imp.grammar:(window.N1_GRAMMAR||[]).filter(g=>!g.sample||SAMPLE_GRAM)),...ug.map(g=>({...g,own:true}))].map(g=>({...g,key:"g:"+g.id}));
 }
 loadData();
 /* 책 문제: 시험과 같은 형식(문장 속 밑줄 단어의 읽기) */
@@ -629,13 +635,13 @@ try{loadVoice();speechSynthesis.onvoiceschanged=loadVoice}catch(e){}
 function speak(t){try{speechSynthesis.cancel();const u=new SpeechSynthesisUtterance(t);u.lang="en-US";if(jaVoice)u.voice=jaVoice;u.rate=.9;speechSynthesis.speak(u)}catch(e){}}
 
 /* ---------- router ---------- */
-const VIEWS=["learn","home","words","quiz","grammar","review"];
+const VIEWS=["learn","home","words","quiz","grammar","prac","review"];
 function route(){
   const v=VIEWS.includes(location.hash.slice(1))?location.hash.slice(1):"learn";
   VIEWS.forEach(x=>$("v-"+x).hidden=x!==v);
   document.querySelectorAll("nav.tabs a").forEach(a=>a.classList.toggle("on",a.dataset.v===v||(v==="home"&&a.dataset.v==="learn")));
   if(v!=="words")stopFlash();
-  ({learn:renderLearn,home:renderHome,words:renderWords,quiz:renderQuiz,grammar:renderGrammar,review:renderReview})[v]();
+  ({prac:renderPrac,learn:renderLearn,home:renderHome,words:renderWords,quiz:renderQuiz,grammar:renderGrammar,review:renderReview})[v]();
   renderBadge();window.scrollTo(0,0);
 }
 function go(v){if(location.hash==="#"+v)route();else location.hash=v}
@@ -947,6 +953,10 @@ function pickItems(src){
   if(src==="grammar")return GRAM;
   if(src.startsWith("gcat:"))return GRAM.filter(g=>"gcat:"+g.cat===src);
   if(src==="book")return BOOKQ;
+  if(src.startsWith("gq1:"))return BOOKQ.filter(q=>q.g===src.slice(4));
+  if(src.startsWith("gq:")){const ids=new Set(GRAM.filter(g=>"gq:"+g.cat===src).map(g=>g.id));return BOOKQ.filter(q=>ids.has(q.g))}
+  if(src.startsWith("part:"))return BOOKQ.filter(q=>q.set.startsWith(src.slice(5)));
+  if(src==="pracwrong")return BOOKQ.filter(q=>stats[q.key]&&stats[q.key].wrong>0&&(stats[q.key].streak||0)<3);
   if(src.startsWith("bset:"))return BOOKQ.filter(q=>"bset:"+q.set===src);
   if(src.startsWith("ch:"))return CH.find(c=>"ch:"+c.id===src)?.words||[];
   return [];
@@ -1068,9 +1078,9 @@ function answer(btn){
   document.querySelectorAll(".choice").forEach(b=>{b.disabled=true;const c=q.choices[+b.dataset.i];if(c===q.answer)b.classList.add("right");else if(b===btn)b.classList.add("wrong")});
   grade(q.item.key,ok);if(ok)Q.score++;else Q.missed.push(q.item);
   const it0=q.item,rd=!!it0.passage,bq=it0.key.startsWith("q:"),it=bq?((it0.g&&KEY["g:"+it0.g])||qWord(it0)||{k:it0.t,r:it0.c[it0.a],m:"",note:""}):it0,g=it.key?.startsWith("g:");
-  const filled=bq&&it0.g?(()=>{const parts=it0.c[it0.a].split(" / ");let n=0;return esc(it0.s).replace(/（　+）/g,()=>`<mark>${esc(parts[n++]||"")}</mark>`)})():"";
+  const filled=bq&&it0.g?(()=>{const parts=it0.c[it0.a].split(" / ");let n=0;return esc(it0.s).replace(/（　+）|_{3,}/g,()=>`<mark>${esc(parts[n++]||"")}</mark>`)})():"";
   $("qReveal").innerHTML=`<div class="reveal"><span class="verdict ${ok?"ok":"no"}">${ok?"정답":"오답"}</span>`+
-    (rd?`<span>정답: ${q.choices.indexOf(q.answer)+1}번 ${esc(q.answer)}</span><span class="note">${it0.book?"책에 표시된 정답이에요.":it0.sure===false?"헷갈리는 문제예요. 정답 해설집(p.54–61)으로 한 번 확인해 주세요.":"정답은 Claude가 지문을 읽고 고른 거예요. 해설집과 다르면 알려 주세요."}</span>`:g?(filled?`<span class="r">${filled}</span>`:"")+`<span class="w">${esc(it.p)}</span><span>${esc(it.m)}</span>${it.conn?`<span class="small">${esc(it.conn)}</span>`:""}<span class="r">${exHTML(it.ex)}</span><span class="small">${esc(it.ko)}</span>`
+    (rd?`<span>정답: ${q.choices.indexOf(q.answer)+1}번 ${esc(q.answer)}</span><span class="note">${it0.exp?"💡 "+esc(it0.exp):it0.book?"책에 표시된 정답이에요.":it0.sure===false?"헷갈리는 문제예요. 정답 해설집(p.54–61)으로 한 번 확인해 주세요.":"정답은 Claude가 지문을 읽고 고른 거예요. 해설집과 다르면 알려 주세요."}</span>`:g?(filled?`<span class="r">${filled}</span>`:"")+(bq&&it0.exp?`<span class="note">💡 ${esc(it0.exp)}</span>`:"")+`<span class="w">${esc(it.p)}</span><span>${esc(it.m)}</span>${it.conn?`<span class="small">${esc(it.conn)}</span>`:""}<span class="r">${exHTML(it.ex)}</span><span class="small">${esc(it.ko)}</span>`
       :(bq?`<span class="r">${esc(it0.s).replace(/\{(.+?)\}/,"<u>$1</u>")}</span>`:"")+`<span class="w">${esc(it.k||it.r)}</span><span class="r">${trapHTML(it.r,it.k)}</span>${it.m?`<span>${esc(it.m)}</span>`:""}${it.note?`<span class="note">${esc(it.note)}</span>`:""}${it.ex?`<span class="small" style="font-family:var(--f-jp)">${exHTML(it.ex)}</span>`:""}`)+
     `<div class="row" style="margin-top:8px">${g||rd?"":'<button id="qSpeak">🔊 발음</button>'}<button class="primary" id="qNext" style="margin-left:auto">다음 ▶</button></div></div>`;
   if(!g&&!rd)$("qSpeak").onclick=()=>speak(it.k);
@@ -1089,9 +1099,10 @@ function renderGrammar(){
   list.innerHTML=gs.length?"":`<div class="panel empty">${GRAM.length?"못 외운 표현이 없어요.":"아직 표현 카드가 없어요. 아래 '표현 카드 직접 추가'로 넣어 보세요."}</div>`;
   if(SAMPLE_GRAM&&GRAM.length)list.innerHTML=`<p class="small" style="margin:0">지금 카드는 예시예요. 직접 카드를 추가하면 예시는 사라져요.</p>`;
   gs.forEach(g=>{const d=document.createElement("div");d.className="panel gcard"+(hide?" hide":"")+(gMastered(g)?" done":"");
-    d.innerHTML=`<div class="top"><span class="p">${esc(g.p)}</span><span class="row"><button class="gcheck" aria-pressed="${gMastered(g)}">✓ 외웠음</button>${g.own?'<button class="gdel">삭제</button>':""}</span></div>
+    d.innerHTML=`<div class="top"><span class="p">${esc(g.p)}</span><span class="row"><button class="gcheck" aria-pressed="${gMastered(g)}">✓ 외웠음</button>${gqN(g)?`<button class="gcheck gq" style="border-color:var(--ai);color:var(--ai)">문제 ${gqN(g)}</button>`:""}${g.own?'<button class="gdel">삭제</button>':""}</span></div>
       ${g.conn?`<span class="conn">${esc(g.conn)}</span>`:""}<span class="m">${esc(g.m)}</span>${g.ex?`<span class="ex">${exHTML(g.ex)}</span>`:""}${g.ko?`<span class="ko">${esc(g.ko)}</span>`:""}${g.sim?`<span class="sim">비교: ${esc(g.sim)}</span>`:""}`;
     d.onclick=e=>{if(e.target.closest("button"))return;d.classList.toggle("hide")};
+    const gqb=d.querySelector(".gq");if(gqb)gqb.onclick=()=>startQuiz({src:"gq1:"+g.id,type:"mix",count:999});
     d.querySelector(".gcheck").onclick=()=>{if(gMastered(g)){gknown.delete(g.key);if((stats[g.key]?.box||0)>=3){stats[g.key].box=2;saveStats()}}else gknown.add(g.key);store.set("en_gknown",[...gknown]);renderGrammar()};
     const del=d.querySelector(".gdel");
     if(del)del.onclick=()=>{if(!del.dataset.armed){del.dataset.armed="1";del.textContent="한 번 더 누르면 삭제";return}
@@ -1109,7 +1120,8 @@ $("gaSave").onclick=()=>{
 $("gCat").onchange=()=>{store.set("en_gcat",$("gCat").value);renderGrammar()};
 const gramCats=()=>[...new Set(GRAM.map(g=>g.cat).filter(Boolean))];
 $("gHide").onchange=renderGrammar;$("gOnly").onchange=renderGrammar;
-$("gQuiz").onclick=()=>startQuiz({src:$("gCat").value?"gcat:"+$("gCat").value:"grammar",type:"mix",count:10});
+const gqN=g=>BOOKQ.filter(q=>q.g===g.id).length;
+$("gQuiz").onclick=()=>{const c=$("gCat").value;if(/^Part 5/.test(c))return startQuiz({src:"gq:"+c,type:"mix",count:999});if(!c)return startQuiz({src:"part:Part 5",type:"mix",count:20});startQuiz({src:"gcat:"+c,type:"mix",count:10})};
 
 /* ---------- review ---------- */
 function renderReview(){
@@ -1137,7 +1149,7 @@ function say(t,rate){if(!CAN_SPEAK)return;try{speechSynthesis.cancel();const u=n
 
 function units(){
   const n=5,out=CH.map(c=>({id:c.id,name:c.name,kind:"w",items:c.words}));
-  [...new Set(GRAM.map(g=>g.cat||"숙어"))].forEach(cat=>out.push({id:"g:"+cat,name:cat,kind:"g",items:GRAM.filter(g=>(g.cat||"숙어")===cat)}));
+  [...new Set(GRAM.map(g=>g.cat||"숙어"))].filter(cat=>!/^Part 5/.test(cat)).forEach(cat=>out.push({id:"g:"+cat,name:cat,kind:"g",items:GRAM.filter(g=>(g.cat||"숙어")===cat)}));
   return out.filter(u=>u.items.length).map(u=>{const m=u.kind==="g"?5:n,ls=[];
     for(let i=0;i<u.items.length;i+=m)ls.push({id:u.id+"#"+(i/m),no:i/m+1,items:u.items.slice(i,i+m)});return {...u,lessons:ls}});
 }
@@ -1370,6 +1382,23 @@ $("lkSave").onclick=()=>{
   $("lkMsg").style.color="";$("lkMsg").textContent=`'${k}'를 "내가 찾은 단어"에 넣었어요. 학습 탭에 레슨으로도 생겨요.`;
   $("lkR").value="";$("lkM").value="";renderLookup();
 };
+/* ---------- 실전 (Part 5·6·7) ---------- */
+function renderPrac(){
+  const box=$("pracList"),sets=[...new Set(BOOKQ.map(q=>q.set))];
+  const wrong=BOOKQ.filter(q=>stats[q.key]&&stats[q.key].wrong>0&&(stats[q.key].streak||0)<3);
+  ["5","6","7"].forEach(n=>$("pr"+n).disabled=!BOOKQ.some(q=>q.set.startsWith("Part "+n)));
+  $("prW").disabled=!wrong.length;$("prW").textContent=`틀린 문제만 (${wrong.length})`;
+  if(!sets.length){box.innerHTML=`<div class="panel empty">아직 문제가 없어요.</div>`;return}
+  box.innerHTML="";
+  sets.forEach(set=>{const xs=BOOKQ.filter(q=>q.set===set),tried=xs.filter(q=>stats[q.key]).length,ok=xs.filter(q=>stats[q.key]&&(stats[q.key].streak||0)>0).length;
+    const pas=new Set(xs.filter(q=>q.passage).map(q=>q.passage)).size;
+    const d=document.createElement("button");d.className="chip";d.style.minWidth="0";
+    d.innerHTML=`<span class="t">${esc(set)}</span><span class="m">${pas?`지문 ${pas}개 · `:""}문제 ${xs.length}개 · ${tried?`최근 ${ok}/${xs.length} 정답`:"아직 안 풀었어요"}</span><span class="bar"><i style="width:${tried?ok/xs.length*100:0}%"></i></span>`;
+    d.onclick=()=>startQuiz({src:"bset:"+set,type:"mix",count:999});box.appendChild(d)});
+}
+["5","6","7"].forEach(n=>$("pr"+n).onclick=()=>startQuiz({src:"part:Part "+n,type:"mix",count:n==="5"?20:999}));
+$("prW").onclick=()=>startQuiz({src:"pracwrong",type:"mix",count:999});
+
 /* ---------- boot ---------- */
 rebuild();
 addEventListener("hashchange",route);
