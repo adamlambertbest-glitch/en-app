@@ -302,6 +302,27 @@ tr.done td.k,tr.done td.r,tr.done td.ko{color:var(--muted)}
 .quitbar{display:flex;gap:8px;align-items:center;justify-content:space-between;background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:10px 12px;font-size:14px}
 @media (prefers-reduced-motion:reduce){.node .bub,.endc .em,.tile.no{animation:none}.lbar i{transition:none}}
 
+/* ---------- 단어 검색 ---------- */
+.fab{position:fixed;z-index:30;right:max(16px,env(safe-area-inset-right,0px));bottom:calc(var(--nav-h) + 14px + env(safe-area-inset-bottom,0px));
+  border:none;border-radius:99px;min-width:52px;height:52px;padding:0 16px;background:var(--ai);color:var(--surface);font-size:18px;font-weight:600;
+  box-shadow:0 4px 14px rgba(0,0,0,.18);display:flex;align-items:center;gap:6px;max-width:calc(100vw - 32px)}
+.fab .q{font-family:var(--f-jp);font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:46vw}
+.sheet-bg{position:fixed;inset:0;z-index:60;background:rgba(10,14,22,.45)}
+.sheet{position:fixed;z-index:61;left:0;right:0;bottom:0;max-height:86vh;overflow-y:auto;background:var(--bg);border-radius:18px 18px 0 0;
+  padding:16px max(16px,env(safe-area-inset-right,0px)) calc(20px + env(safe-area-inset-bottom,0px)) max(16px,env(safe-area-inset-left,0px))}
+.sheet .in{max-width:640px;margin:0 auto;display:flex;flex-direction:column;gap:14px}
+.sheet .top{display:flex;gap:8px;align-items:center}
+.sheet .top input{flex:1;min-width:0;font-size:18px}
+.lk{display:flex;flex-direction:column;gap:8px}
+.lk .it{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:10px 12px;display:flex;gap:10px;align-items:baseline;flex-wrap:wrap}
+.lk .k{font-family:var(--f-jp-display);font-size:20px;font-weight:700}
+.lk .r{font-family:var(--f-jp);color:var(--ai)}
+.lk .m{flex:1 1 140px;min-width:0}
+.lk .c{font-size:11px;color:var(--muted);width:100%}
+.ext{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.ext a{display:block;text-align:center;text-decoration:none;border:1px solid var(--line);border-radius:10px;padding:10px 4px;color:var(--ai);background:var(--surface);font-weight:600;font-size:14px}
+.addw{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.addw .full{grid-column:1/-1}
 @media (prefers-reduced-motion:reduce){.card,.qbar i{transition:none}}
 </style>
 
@@ -460,6 +481,16 @@ tr.done td.k,tr.done td.r,tr.done td.ko{color:var(--muted)}
   </section>
 </div>
 
+<button class="fab" id="fab" aria-label="단어 검색">🔍<span class="q" id="fabQ" hidden></span></button>
+<div class="sheet-bg" id="lkBg" hidden></div>
+<div class="sheet" id="lk" role="dialog" aria-modal="true" aria-label="단어 검색" hidden><div class="in">
+  <div class="top"><input class="field" id="lkIn" placeholder="모르는 단어 (영어·한글)" autocomplete="off" autocapitalize="none" spellcheck="false" aria-label="검색어"><button id="lkX" aria-label="닫기">닫기</button></div>
+  <div id="lkRes" class="lk"></div>
+  <div><h2 style="margin-bottom:6px">사전에서 찾기</h2><div class="ext" id="lkExt"></div></div>
+  <details class="panel" id="lkAdd"><summary style="cursor:pointer;font-weight:600">내 단어장에 추가</summary>
+    <div class="addw" style="margin-top:10px"><input class="field" id="lkK" placeholder="word" autocapitalize="none" spellcheck="false"><input class="field" id="lkR" placeholder="/발음/ (선택)"><input class="field full" id="lkM" placeholder="한글 뜻" style="font-family:var(--f-ko)">
+    <button class="primary full" id="lkSave">"내가 찾은 단어"에 추가</button><span class="msg full" id="lkMsg"></span></div></details>
+</div></div>
 <nav class="tabs" aria-label="메뉴"><div class="in">
   <a href="#learn" data-v="learn"><span class="g">✦</span>학습</a>
   <a href="#words" data-v="words"><span class="g">Aa</span>단어</a>
@@ -1132,9 +1163,9 @@ function startLesson(u,l){
   const ex=buildLesson(u,l);
   LX={u,l,ex,total:ex.length,done:0,hearts:5,mist:0,graded:new Set(),state:"ask",sel:null};
   let el=$("lesson");if(!el){el=document.createElement("div");el.id="lesson";el.className="lesson";el.setAttribute("role","dialog");el.setAttribute("aria-modal","true");document.body.appendChild(el)}
-  el.hidden=false;document.body.style.overflow="hidden";stopFlash();drawEx();
+  el.hidden=false;document.body.style.overflow="hidden";$("fab").hidden=true;stopFlash();drawEx();
 }
-function closeLesson(){const el=$("lesson");if(el)el.hidden=true;document.body.style.overflow="";LX=null;try{speechSynthesis.cancel()}catch(e){}renderLearn();renderBadge()}
+function closeLesson(){const el=$("lesson");if(el)el.hidden=true;$("fab").hidden=false;document.body.style.overflow="";LX=null;try{speechSynthesis.cancel()}catch(e){}renderLearn();renderBadge()}
 function shell(body,foot){
   const el=$("lesson");
   el.innerHTML=`<div class="in ltop"><button class="x" id="lxQuit" aria-label="레슨 그만두기">✕</button><div class="lbar"><i style="width:${LX.done/LX.total*100}%"></i></div><span class="hearts" aria-label="남은 하트">♥ ${LX.hearts}</span></div>
@@ -1224,6 +1255,59 @@ document.addEventListener("keydown",ev=>{if(!LX||$("lesson")?.hidden)return;
   if(/^[1-5]$/.test(ev.key)&&LX.state==="ask"&&!/INPUT/.test(ev.target.tagName)){const b=document.querySelectorAll(".opt")[+ev.key-1];if(b)b.click()}
   else if(ev.key==="Enter"&&!/INPUT|BUTTON/.test(ev.target.tagName)){$("lxGo")?.click()}});
 
+
+/* ---------- 단어 검색 ---------- */
+let lkSel="";
+const isKO=t=>/[가-힣]/.test(t);
+function lookup(q){
+  q=q.trim();const out=[];if(!q)return out;const ql=q.toLowerCase(),seen=new Set(),ws=allWords();
+  const addW=(w,why)=>{if(seen.has(w.key))return;seen.add(w.key);out.push({w,why})};
+  ws.forEach(w=>{if(w.k.toLowerCase()===ql)addW(w,"")});
+  if(isKO(q))ws.forEach(w=>{if(w.m.includes(q))addW(w,"")});
+  else{ws.forEach(w=>{const k=w.k.toLowerCase();if(k.startsWith(ql)||(ql.length>=3&&k.includes(ql)))addW(w,"")});
+    const toks=new Set(ql.replace(/[^a-z'\- ]/g," ").split(/\s+/).filter(Boolean));
+    if(toks.size>1)ws.forEach(w=>{const k=w.k.toLowerCase();if(k.includes(" ")?(" "+[...toks].join(" ")+" ").includes(" "+k+" ")||ql.includes(k):toks.has(k))addW(w,"입력한 문장 속 단어")})}
+  GRAM.forEach(g=>{const pl=g.p.toLowerCase().replace(/\s*-ing$/,"");if(isKO(q)?g.m.includes(q):(pl.includes(ql)||(ql.length>pl.length&&ql.includes(pl))))out.push({g})});
+  return out.slice(0,30);
+}
+function renderLookup(){
+  const q=$("lkIn").value.trim(),res=lookup(q),chName=id=>CH.find(c=>c.id===id)?.name||"";
+  $("lkRes").innerHTML=!q?`<p class="small" style="margin:0">숙어 예문이나 퀴즈 문장에서 모르는 단어를 꾹 눌러 선택한 뒤 🔍를 누르면 바로 찾아져요.</p>`
+    :res.length?res.map(x=>x.g?`<div class="it"><span class="k">${esc(x.g.p)}</span><span class="m">${esc(x.g.m)}</span><span class="c">숙어 · ${esc(x.g.cat||"")}</span></div>`
+      :`<div class="it"><span class="k">${esc(x.w.k)}</span>${x.w.r?`<span class="r">${esc(x.w.r)}</span>`:""}<span class="m">${esc(x.w.m)}</span><button class="sp" data-k="${esc(x.w.k)}" aria-label="발음 듣기" style="padding:4px 8px">🔊</button><span class="c">${x.why?x.why+" · ":""}${esc(chName(x.w.ch))}</span></div>`).join("")
+    :`<p class="small" style="margin:0">내 단어장에는 없어요. 아래 사전에서 찾아보세요.</p>`;
+  $("lkRes").querySelectorAll(".sp").forEach(b=>b.onclick=()=>speak(b.dataset.k));
+  const e=encodeURIComponent(q),one=/^[A-Za-z'\-]+$/.test(q);
+  $("lkExt").innerHTML=q?`<a href="https://en.dict.naver.com/#/search?query=${e}" target="_blank" rel="noopener">네이버 영어사전</a><a href="https://papago.naver.com/?sk=${isKO(q)?"ko":"en"}&tk=${isKO(q)?"en":"ko"}&st=${e}" target="_blank" rel="noopener">파파고</a>${one?`<a href="https://dictionary.cambridge.org/dictionary/english-korean/${e.toLowerCase()}" target="_blank" rel="noopener">Cambridge</a>`:`<a href="https://www.google.com/search?q=${e}+meaning" target="_blank" rel="noopener">Google</a>`}`
+    :`<p class="small" style="margin:0;grid-column:1/-1">검색어를 넣으면 사전 링크가 생겨요.</p>`;
+  if(!$("lkK").dataset.touched)$("lkK").value=isKO(q)?"":q;
+}
+function openLookup(q){
+  $("lk").hidden=false;$("lkBg").hidden=false;document.body.style.overflow="hidden";
+  delete $("lkK").dataset.touched;$("lkMsg").textContent="";$("lkM").value="";$("lkR").value="";
+  $("lkIn").value=(q||"").slice(0,60);renderLookup();if(!q)setTimeout(()=>{try{$("lkIn").focus()}catch(e){}},50);
+}
+function closeLookup(){$("lk").hidden=true;$("lkBg").hidden=true;if(!LX)document.body.style.overflow=""}
+$("fab").onclick=()=>{const q=lkSel;lkSel="";$("fabQ").hidden=true;openLookup(q)};
+$("lkX").onclick=closeLookup;$("lkBg").onclick=closeLookup;
+$("lkIn").oninput=renderLookup;
+["lkK","lkR"].forEach(id=>$(id).oninput=()=>{$("lkK").dataset.touched="1"});
+document.addEventListener("keydown",e=>{if(e.key==="Escape"&&!$("lk").hidden)closeLookup()});
+document.addEventListener("selectionchange",()=>{
+  let t="";try{const sl=getSelection();t=sl&&sl.rangeCount?String(sl).trim():"";
+    if(t){const n=sl.anchorNode&&(sl.anchorNode.nodeType===1?sl.anchorNode:sl.anchorNode.parentElement);if(n&&n.closest("#lk,input,textarea"))t=""}}catch(e){}
+  if(t&&t.length<=60){lkSel=t;$("fabQ").textContent=t;$("fabQ").hidden=false}
+  else if(!t){setTimeout(()=>{let still="";try{still=String(getSelection()).trim()}catch(e){}if(!still){lkSel="";$("fabQ").hidden=true}},400)}
+});
+$("lkSave").onclick=()=>{
+  const k=$("lkK").value.trim(),r=$("lkR").value.trim(),m=$("lkM").value.trim();
+  if(!k||!m){$("lkMsg").style.color="var(--bad)";$("lkMsg").textContent="단어와 한글 뜻은 꼭 적어 주세요. 사전에서 확인해서 넣으면 정확해요.";return}
+  let c=custom.find(x=>x.id==="lookup");if(!c){c={id:"lookup",name:"내가 찾은 단어",words:[]};custom.push(c)}
+  if(c.words.some(w=>w[0].toLowerCase()===k.toLowerCase())){$("lkMsg").style.color="var(--bad)";$("lkMsg").textContent="이미 들어 있는 단어예요.";return}
+  c.words.push([k,r?(r.startsWith("/")?r:"/"+r+"/"):"",m]);if(!saveCustom())return;
+  $("lkMsg").style.color="";$("lkMsg").textContent=`'${k}'를 "내가 찾은 단어"에 넣었어요. 학습 탭에 레슨으로도 생겨요.`;
+  $("lkR").value="";$("lkM").value="";renderLookup();
+};
 /* ---------- boot ---------- */
 rebuild();
 addEventListener("hashchange",route);
