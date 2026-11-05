@@ -2,7 +2,7 @@
   "name": "영단어 플래시",
   "short_name": "영단어",
   "id": "./",
-  "start_url": "./#home",
+  "start_url": "./#learn",
   "scope": "./",
   "display": "standalone",
   "orientation": "portrait",
