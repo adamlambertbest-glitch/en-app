@@ -342,7 +342,7 @@ tr.done td.k,tr.done td.r,tr.done td.ko{color:var(--muted)}
 
   <section class="view" id="v-home" hidden>
     <div class="hero">
-      <div><h1>영단어 플래시</h1><p class="lead" id="updatedLine"></p></div>
+      <div><h1>영단어 플래시</h1><p class="lead" style="margin:2px 0 0;color:var(--ai);font-weight:600">TOEIC 990 목표</p><p class="lead" id="updatedLine"></p></div>
       <div class="dday" hidden><b id="ddayNum">D-34</b><input type="date" id="examDate" aria-label="시험일"></div>
     </div>
     <div>
@@ -544,7 +544,7 @@ const saveStats=()=>store.set("en_stats",stats);
 let CH=[],KEY={};
 function rebuild(){
   CH=[...DATA.chapters,...custom.map(c=>({...c,local:true}))].map(c=>({...c,words:c.words.map(a=>{
-    const w={k:a[0]||"",r:a[1]||"",m:a[2]||"",note:a[3]||"",ch:c.id};w.key=(w.k||w.r)+"|"+w.r;return w})}));
+    const w={k:a[0]||"",r:a[1]||"",m:a[2]||"",note:a[3]||"",ex:a[4]||"",ch:c.id};w.key=(w.k||w.r)+"|"+w.r;return w})}));
   KEY={};CH.forEach(c=>c.words.forEach(w=>KEY[w.key]=w));GRAM.forEach(g=>KEY[g.key]=g);BOOKQ.forEach(q=>KEY[q.key]=q);
 }
 const allWords=()=>{const seen=new Set();return CH.flatMap(c=>c.words).filter(w=>!seen.has(w.key)&&seen.add(w.key))};
@@ -705,7 +705,7 @@ function renderList(){
   $("listTitle").textContent="단어 목록 · "+c.name;$("list").innerHTML="";
   $("chCount").textContent=`${c.words.filter(mastered).length} / ${c.words.length} 외움`;
   c.words.forEach(w=>{const tr=document.createElement("tr");if(mastered(w))tr.className="done";
-    tr.innerHTML=`<td class="c"><button class="chk" aria-pressed="${mastered(w)}" aria-label="외웠음 표시">✓</button></td><td class="k">${esc(w.k||w.r)}</td><td class="r">${$("traps").checked?trapHTML(w.r,w.k):esc(w.r)}</td><td class="ko">${esc(w.m)}${w.note?`<span class="note">${esc(w.note)}</span>`:""}</td>`;
+    tr.innerHTML=`<td class="c"><button class="chk" aria-pressed="${mastered(w)}" aria-label="외웠음 표시">✓</button></td><td class="k">${esc(w.k||w.r)}</td><td class="r">${$("traps").checked?trapHTML(w.r,w.k):esc(w.r)}</td><td class="ko">${esc(w.m)}${w.note?`<span class="note">${esc(w.note)}</span>`:""}${w.ex?`<span class="small" style="display:block;font-family:var(--f-jp)">${exHTML(w.ex)}</span>`:""}</td>`;
     tr.querySelector(".chk").onclick=e=>{e.stopPropagation();toggleKnown(w);renderChapters();renderList();if(queue[idx]?.key===w.key)$("known").setAttribute("aria-pressed",mastered(w))};
     tr.onclick=()=>{const i=queue.findIndex(q=>q.key===w.key);if(i>=0){idx=i;stage=stagesFor(w)[0];showCard();window.scrollTo({top:0,behavior:"smooth"})}};
     $("list").appendChild(tr)});
@@ -917,7 +917,7 @@ $("saveCh").onclick=()=>{
 
 /* ---------- quiz ---------- */
 let Q=null; // {items, i, score, missed, answered, opts}
-const QTYPES={mix:"섞어서",spell:"철자 고르기 (함정 보기)",mean:"단어 → 뜻",rev:"뜻 → 단어"};
+const QTYPES={mix:"섞어서",part5:"Part 5 빈칸 (품사·어형)",syn:"Part 7 유의어 (패러프레이즈)",spell:"철자 고르기 (함정 보기)",mean:"단어 → 뜻",rev:"뜻 → 단어"};
 function sources(){
   const s=[{v:"due",t:`오늘 복습 (${dueKeys().length})`},{v:"wrong",t:`오답 노트 (${wrongKeys().length})`},{v:"all",t:"전체 단어"},{v:"unknown",t:"못 외운 단어"}];
   CH.forEach(c=>s.push({v:"ch:"+c.id,t:"단어 · "+c.name}));
@@ -956,13 +956,37 @@ function makeQ(item,type){
     return {item,kind:"이 표현의 뜻은?",pcls:"jp",prompt:item.p,answer:item.m,choices:fillChoices(item.m,same.map(g=>g.m),other.map(g=>g.m)),ccls:"ko long"};
   }
   const w=item,hasK=w.k&&w.k!==w.r;
-  let t=type==="mix"?shuffle(["spell","mean","mean","rev"])[0]:type;
+  let t=type==="mix"?shuffle(["spell","mean","mean","rev",...(w.ex?["part5","part5"]:[]),...(synOf(w).length?["syn"]:[])])[0]:type;
+  if(t==="part5"&&!/\{.+?\}/.test(w.ex||""))t="mean";
+  if(t==="syn"&&!synOf(w).length)t="rev";
   const pool=allWords().filter(x=>x.key!==w.key);
   const same=CH.find(c=>c.id===w.ch)?.words.filter(x=>x.key!==w.key)||[];
+  if(t==="part5"){const ans=w.ex.match(/\{(.+?)\}/)[1],forms=morph(w).filter(x=>x.toLowerCase()!==ans.toLowerCase());
+    return {item,kind:"Part 5 · 빈칸에 알맞은 것",pcls:"sent",prompt:w.ex.replace(/\{.+?\}/,"_______"),answer:ans,choices:fillChoices(ans,forms,pool.filter(x=>posOf(x)===posOf(w)).map(x=>x.k)),ccls:"jp"}}
+  if(t==="syn"){const sy=synOf(w),ans=sy[0],bad=new Set([w.k.toLowerCase(),...sy.map(x=>x.toLowerCase())]);
+    return {item,kind:"Part 7 · 같은 뜻으로 바꿔 쓸 수 있는 것",pcls:"jp",prompt:w.k,answer:ans,choices:fillChoices(ans,[],pool.flatMap(x=>[x.k,...synOf(x)]).filter(x=>!bad.has(x.toLowerCase()))),ccls:"jp"}}
   if(t==="spell")return {item,kind:"철자가 맞는 것은?",pcls:"ko",prompt:w.m,answer:w.k,choices:fillChoices(w.k,spellMut(w.k),pool.filter(x=>Math.abs(x.k.length-w.k.length)<=2).map(x=>x.k)),ccls:"jp"};
   if(t==="mean")return {item,kind:"뜻은?",pcls:"jp",prompt:w.k||w.r,answer:w.m,choices:fillChoices(w.m,same.map(x=>x.m),pool.map(x=>x.m)),ccls:"ko long"};
   const show=x=>x.k||x.r;
   return {item,kind:"이 뜻의 단어는?",pcls:"ko",prompt:w.m,answer:show(w),choices:fillChoices(show(w),same.map(show),pool.map(show)),ccls:"jp"};
+}
+/* 토익용: 메모에서 품사·파생어·유의어 읽기 (예: "v. · 파생: implementation(n.) · 유의어: carry out") */
+const posOf=w=>((w.note||"").match(/^\s*(n|v|adj|adv)\./i)||[])[1]?.toLowerCase()||"";
+const listIn=(w,label)=>{const m=(w.note||"").match(new RegExp(label+"\\s*[:：]\\s*([^·]+)"));return m?m[1].split(/[,，]/).map(x=>x.replace(/\(.*?\)/g,"").trim()).filter(Boolean):[]};
+const synOf=w=>listIn(w,"유의어");
+function morph(w){
+  const b=w.k.toLowerCase(),pos=posOf(w),out=new Set(listIn(w,"파생"));
+  if(/\s/.test(b))return [...out];
+  if(pos==="v"){out.add(b);
+    if(/[^aeiou]y$/.test(b)){out.add(b.slice(0,-1)+"ies");out.add(b.slice(0,-1)+"ied");out.add(b+"ing")}
+    else if(/(s|x|z|ch|sh)$/.test(b))out.add(b+"es");
+    else out.add(b+"s");
+    if(b.endsWith("e")&&!b.endsWith("ee")){out.add(b.slice(0,-1)+"ing");out.add(b+"d")}
+    else if(!/[^aeiou][aeiou][^aeiouwxy]$/.test(b)&&!/y$/.test(b)){out.add(b+"ing");out.add(b+"ed")}}   // 자음 겹침 여부가 애매한 단어(submit 등)는 -ing/-ed를 만들지 않음
+  else if(pos==="adj"){out.add(b);out.add(b.endsWith("le")?b.slice(0,-1)+"y":b.endsWith("y")?b.slice(0,-1)+"ily":b+"ly")}
+  else if(pos==="adv"){out.add(b);out.add(b.endsWith("bly")?b.slice(0,-1)+"e":b.endsWith("ily")?b.slice(0,-3)+"y":b.endsWith("ly")?b.slice(0,-2):b)}
+  else out.add(b);
+  return [...out];
 }
 function spellMut(s){
   const hi=new Set(),lo=new Set(),V="aeiou",ok=x=>x&&x!==s&&/^[A-Za-z' \-]+$/.test(x);
@@ -1032,7 +1056,7 @@ function answer(btn){
   const filled=bq&&it0.g?(()=>{const parts=it0.c[it0.a].split(" / ");let n=0;return esc(it0.s).replace(/（　+）/g,()=>`<mark>${esc(parts[n++]||"")}</mark>`)})():"";
   $("qReveal").innerHTML=`<div class="reveal"><span class="verdict ${ok?"ok":"no"}">${ok?"정답":"오답"}</span>`+
     (rd?`<span>정답: ${q.choices.indexOf(q.answer)+1}번 ${esc(q.answer)}</span><span class="note">${it0.book?"책에 표시된 정답이에요.":it0.sure===false?"헷갈리는 문제예요. 정답 해설집(p.54–61)으로 한 번 확인해 주세요.":"정답은 Claude가 지문을 읽고 고른 거예요. 해설집과 다르면 알려 주세요."}</span>`:g?(filled?`<span class="r">${filled}</span>`:"")+`<span class="w">${esc(it.p)}</span><span>${esc(it.m)}</span>${it.conn?`<span class="small">${esc(it.conn)}</span>`:""}<span class="r">${exHTML(it.ex)}</span><span class="small">${esc(it.ko)}</span>`
-      :(bq?`<span class="r">${esc(it0.s).replace(/\{(.+?)\}/,"<u>$1</u>")}</span>`:"")+`<span class="w">${esc(it.k||it.r)}</span><span class="r">${trapHTML(it.r,it.k)}</span>${it.m?`<span>${esc(it.m)}</span>`:""}${it.note?`<span class="note">${esc(it.note)}</span>`:""}`)+
+      :(bq?`<span class="r">${esc(it0.s).replace(/\{(.+?)\}/,"<u>$1</u>")}</span>`:"")+`<span class="w">${esc(it.k||it.r)}</span><span class="r">${trapHTML(it.r,it.k)}</span>${it.m?`<span>${esc(it.m)}</span>`:""}${it.note?`<span class="note">${esc(it.note)}</span>`:""}${it.ex?`<span class="small" style="font-family:var(--f-jp)">${exHTML(it.ex)}</span>`:""}`)+
     `<div class="row" style="margin-top:8px">${g||rd?"":'<button id="qSpeak">🔊 발음</button>'}<button class="primary" id="qNext" style="margin-left:auto">다음 ▶</button></div></div>`;
   if(!g&&!rd)$("qSpeak").onclick=()=>speak(it.k);
   $("qNext").onclick=nextQ;$("qNext").focus();
@@ -1137,7 +1161,7 @@ function wordEx(w,type){
   if(type==="type")return {t:"type",key:w.key,w};
   if(type==="listen"){const pool=allWords().filter(x=>x.key!==w.key),same=CH.find(c=>c.id===w.ch)?.words.filter(x=>x.key!==w.key)||[];
     return {t:"choice",key:w.key,w,q:{kind:"듣고 알맞은 단어를 고르세요",listen:w.k,answer:w.k,choices:fillChoices(w.k,[...spellMut(w.k).slice(0,1),...shuffle(same.map(x=>x.k))],pool.map(x=>x.k)),en:true}}}
-  const q=makeQ(w,type);return {t:"choice",key:w.key,w,q:{kind:q.kind,prompt:q.prompt,ko:q.pcls==="ko",answer:q.answer,choices:q.choices,en:!/ko/.test(q.ccls)}};
+  const q=makeQ(w,type);return {t:"choice",key:w.key,w,q:{kind:q.kind,prompt:q.prompt,ko:q.pcls==="ko",sent:q.pcls==="sent",answer:q.answer,choices:q.choices,en:!/ko/.test(q.ccls)}};
 }
 function buildLesson(u,l){
   const ex=[];
@@ -1151,7 +1175,7 @@ function buildLesson(u,l){
     const ws=l.items;
     ws.forEach(w=>{if(!L.seen[w.key])ex.push({t:"intro",w,key:w.key});ex.push(wordEx(w,pick(["mean","rev"])))});
     if(ws.length>=3)ex.push({t:"match",pairs:shuffle(ws).slice(0,5).map(w=>({a:w.k,b:w.m,key:w.key}))});
-    shuffle(ws).forEach(w=>ex.push(wordEx(w,pick(CAN_SPEAK?["spell","listen","type","type"]:["spell","type","rev"]))));
+    shuffle(ws).forEach(w=>{const o=CAN_SPEAK?["spell","listen","type"]:["spell","type","rev"];if(/\{.+?\}/.test(w.ex||""))o.push("part5","part5");if(synOf(w).length)o.push("syn");ex.push(wordEx(w,pick(o)))});
   }
   return ex;
 }
@@ -1178,7 +1202,7 @@ function drawEx(){
   const e=LX.ex[0];LX.state="ask";LX.sel=null;
   const checkBtn=`<button class="big-btn" id="lxGo" aria-disabled="true">확인</button>`;
   if(e.t==="intro"){const w=e.w,g=e.g;
-    shell(`<p class="ltitle">새 ${g?"숙어":"단어"}</p><div class="intro"><span class="tag">NEW</span><span class="w">${esc(g?g.p:w.k)}</span>${w&&w.r?`<span class="p">${esc(w.r)}</span>`:""}<span class="m">${esc(g?g.m:w.m)}</span>${w&&w.note?`<span class="n">${esc(w.note)}</span>`:""}${g&&g.ex?`<span class="ex">${exHTML(g.ex)}</span><span class="n">${esc(g.ko||"")}</span>`:""}${CAN_SPEAK?`<button class="spk sm" id="lxSay" aria-label="발음 듣기">🔊</button>`:""}</div>`,
+    shell(`<p class="ltitle">새 ${g?"숙어":"단어"}</p><div class="intro"><span class="tag">NEW</span><span class="w">${esc(g?g.p:w.k)}</span>${w&&w.r?`<span class="p">${esc(w.r)}</span>`:""}<span class="m">${esc(g?g.m:w.m)}</span>${w&&w.note?`<span class="n">${esc(w.note)}</span>`:""}${w&&w.ex?`<span class="ex">${exHTML(w.ex)}</span>`:""}${g&&g.ex?`<span class="ex">${exHTML(g.ex)}</span><span class="n">${esc(g.ko||"")}</span>`:""}${CAN_SPEAK?`<button class="spk sm" id="lxSay" aria-label="발음 듣기">🔊</button>`:""}</div>`,
       `<button class="big-btn" id="lxGo">알겠어요</button>`);
     const t=g?g.p:w.k;if($("lxSay"))$("lxSay").onclick=()=>say(t);say(t);
     $("lxGo").onclick=()=>{L.seen[e.key]=1;saveL();LX.ex.shift();LX.done++;drawEx()};return}
